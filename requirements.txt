@@ -1,0 +1,12 @@
+django>=4.2
+djangorestframework>=3.14
+django-cors-headers>=4.0
+python-decouple>=3.8
+yfinance>=0.2.40
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+nltk>=3.8
+newsapi-python>=0.2.7
+mssql-django>=1.4
+pyodbc>=5.0
