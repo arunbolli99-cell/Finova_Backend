@@ -144,12 +144,24 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",   # Vite dev server
     "http://localhost:3000",
     "http://127.0.0.1:5173",
+    "https://finova-tech.vercel.app",
 ]
 custom_cors = config("CORS_ALLOWED_ORIGINS", default="")
 if custom_cors:
     CORS_ALLOWED_ORIGINS.extend([origin.strip() for origin in custom_cors.split(",") if origin.strip()])
 
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF Trusted Origins for modern Django (required for POST/PUT requests from frontend)
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://finova-tech.vercel.app",
+]
+custom_csrf = config("CSRF_TRUSTED_ORIGINS", default="")
+if custom_csrf:
+    CSRF_TRUSTED_ORIGINS.extend([origin.strip() for origin in custom_csrf.split(",") if origin.strip()])
+
 
 # ------------------------------------------------------------------
 # Auth password validators
