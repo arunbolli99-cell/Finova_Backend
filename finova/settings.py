@@ -10,6 +10,7 @@ Production-ready configuration with:
 
 from pathlib import Path
 from decouple import config
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -80,14 +81,23 @@ WSGI_APPLICATION = "finova.wsgi.application"
 
 # ------------------------------------------------------------------
 # Database
-# Development : USE_SQLITE=True  → SQLite (zero config, instant start)
-# Production  : USE_SQLITE=False → SQL Server via mssql-django
-#
-# Set USE_SQLITE=False in .env once SQL Server is running.
+# Priority 1: DATABASE_URL (Neon PostgreSQL / Render Postgres)
+# Priority 2: USE_SQLITE=True  → SQLite (local development)
+# Priority 3: SQL Server via mssql-django
 # ------------------------------------------------------------------
+DATABASE_URL = config("DATABASE_URL", default=None)
 USE_SQLITE = config("USE_SQLITE", default=True, cast=bool)
 
-if USE_SQLITE:
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True
+        )
+    }
+elif USE_SQLITE:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -108,6 +118,7 @@ else:
             },
         }
     }
+
 
 # ------------------------------------------------------------------
 # Cache — local-memory (swap to Redis in production)
