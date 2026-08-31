@@ -10,3 +10,6 @@ nltk>=3.8
 newsapi-python>=0.2.7
 mssql-django>=1.4
 pyodbc>=5.0
+gunicorn>=21.2.0
+whitenoise>=6.6.0
+

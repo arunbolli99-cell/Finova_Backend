@@ -18,7 +18,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ------------------------------------------------------------------
 SECRET_KEY = config("SECRET_KEY", default="insecure-default-dev-key")
 DEBUG = config("DEBUG", default=True, cast=bool)
+
+# Host configuration (handles Render hostnames automatically)
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
+RENDER_EXTERNAL_HOSTNAME = config("RENDER_EXTERNAL_HOSTNAME", default=None)
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # ------------------------------------------------------------------
 # Application definition
@@ -41,6 +46,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",   # Must be FIRST
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -131,13 +137,18 @@ REST_FRAMEWORK = {
 }
 
 # ------------------------------------------------------------------
-# CORS — allow React dev server
+# CORS — allow React dev server and production frontends
 # ------------------------------------------------------------------
+CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=True, cast=bool)
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",   # Vite dev server
     "http://localhost:3000",
     "http://127.0.0.1:5173",
 ]
+custom_cors = config("CORS_ALLOWED_ORIGINS", default="")
+if custom_cors:
+    CORS_ALLOWED_ORIGINS.extend([origin.strip() for origin in custom_cors.split(",") if origin.strip()])
+
 CORS_ALLOW_CREDENTIALS = True
 
 # ------------------------------------------------------------------
@@ -159,9 +170,11 @@ USE_I18N = True
 USE_TZ = True
 
 # ------------------------------------------------------------------
-# Static files
+# Static files & WhiteNoise
 # ------------------------------------------------------------------
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ------------------------------------------------------------------

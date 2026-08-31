@@ -56,31 +56,63 @@ class PortfolioService:
         wins = 0
 
         # BATCH FETCH PRICES AND DATA
-        symbols = [validate_symbol(h.get("symbol", "")) for h in holdings]
+        symbols = []
+        for h in holdings:
+            sym = str(h.get("symbol", "")).strip()
+            if sym:
+                try:
+                    symbols.append(validate_symbol(sym))
+                except Exception:
+                    symbols.append(self._sanitize_symbol(sym))
+
         prices_df = self._batch_fetch_prices(symbols)
         
         for h in holdings:
-            symbol = validate_symbol(h.get("symbol", ""))
-            quantity = validate_positive_number(h.get("quantity", 0), "quantity")
-            avg_price = validate_positive_number(h.get("avg_buy_price", 0), "avg_buy_price")
+            raw_sym = str(h.get("symbol", "")).strip()
+            if not raw_sym:
+                continue
+            try:
+                symbol = validate_symbol(raw_sym)
+            except Exception:
+                symbol = self._sanitize_symbol(raw_sym)
 
-            # GET PRICE AND SECTOR (Optimized)
-            price_data = prices_df.get(symbol, {"price": avg_price, "day_change_pct": 0})
-            current_price = price_data["price"]
-            day_change_pct = price_data["day_change_pct"]
+            try:
+                quantity = float(h.get("quantity", 1))
+                if quantity <= 0:
+                    quantity = 1.0
+            except (TypeError, ValueError):
+                quantity = 1.0
+
+            try:
+                avg_price = float(h.get("avg_buy_price", 0))
+                if avg_price < 0 or np.isnan(avg_price):
+                    avg_price = 0.0
+            except (TypeError, ValueError):
+                avg_price = 0.0
+
+            # GET PRICE AND SECTOR (Optimized & NaN safe)
+            price_data = prices_df.get(symbol) or prices_df.get(self._sanitize_symbol(symbol)) or {}
+            current_price = price_data.get("price")
+            if current_price is None or np.isnan(current_price) or current_price <= 0:
+                current_price = avg_price if avg_price > 0 else 1.0
+
+            day_change_pct = price_data.get("day_change_pct", 0.0)
+            if day_change_pct is None or np.isnan(day_change_pct):
+                day_change_pct = 0.0
+
             sector = self._get_sector(symbol)
 
             invested = quantity * avg_price
             current_val = quantity * current_price
             pnl = current_val - invested
-            pnl_pct = (pnl / invested) * 100 if invested else 0
+            pnl_pct = (pnl / invested * 100) if invested > 0 else 0.0
 
             if pnl > 0: wins += 1
             total_invested += invested
             total_current += current_val
 
             s = sector or "Unknown"
-            sector_map[s] = sector_map.get(s, 0) + current_val
+            sector_map[s] = sector_map.get(s, 0.0) + current_val
 
             enriched.append({
                 "symbol": symbol,
@@ -93,33 +125,42 @@ class PortfolioService:
                 "pnl": round(pnl, 2),
                 "pnl_pct": round(pnl_pct, 2),
                 "sector": s,
-                "weight": 0 
+                "weight": 0.0 
             })
 
         # Calculate weights and concentration
-        max_weight = 0
+        max_weight = 0.0
         top_asset = ""
         for h in enriched:
-            h["weight"] = round((h["current_value"] / total_current) * 100, 2)
+            h["weight"] = round((h["current_value"] / total_current * 100), 2) if total_current > 0 else 0.0
+            if np.isnan(h["weight"]):
+                h["weight"] = 0.0
             if h["weight"] > max_weight:
                 max_weight = h["weight"]
                 top_asset = h["symbol"]
 
         # Portfolio-level metrics
         total_pnl = total_current - total_invested
-        total_pnl_pct = (total_pnl / total_invested * 100) if total_invested else 0
+        total_pnl_pct = (total_pnl / total_invested * 100) if total_invested > 0 else 0.0
+        if np.isnan(total_pnl_pct):
+            total_pnl_pct = 0.0
 
         # Sector distribution %
         sector_distribution = {
-            s: round((v / total_current) * 100, 2)
+            s: round((v / total_current * 100), 2) if total_current > 0 else 0.0
             for s, v in sector_map.items()
         }
+        for s, v in list(sector_distribution.items()):
+            if np.isnan(v):
+                sector_distribution[s] = 0.0
 
         # Diversification score
-        weights = [v / total_current for v in sector_map.values()]
-        hhi = sum(w ** 2 for w in weights)
+        weights = [(v / total_current) for v in sector_map.values()] if total_current > 0 else []
+        hhi = sum(w ** 2 for w in weights) if weights else 1.0
         n = len(sector_map)
-        diversification_score = round((1 - hhi) / (1 - 1 / max(n, 2)) * 100, 1) if n > 1 else 0
+        diversification_score = round((1 - hhi) / (1 - 1 / max(n, 2)) * 100, 1) if n > 1 else 0.0
+        if np.isnan(diversification_score):
+            diversification_score = 0.0
 
         # Risk Intelligence (Beta, Volatility)
         history_data = self._calculate_total_history(holdings)
@@ -133,7 +174,7 @@ class PortfolioService:
         if n < 3:
             warnings.append("⚠️ Portfolio is under-diversified. Consider adding more sectors.")
 
-        return {
+        response = {
             "holdings": enriched,
             "summary": {
                 "total_invested": round(total_invested, 2),
@@ -142,14 +183,15 @@ class PortfolioService:
                 "total_pnl_pct": round(total_pnl_pct, 2),
                 "num_holdings": len(enriched),
                 "diversification_score": diversification_score,
-                "win_ratio": round((wins / len(enriched)) * 100, 1) if enriched else 0,
-                "top_asset_concentration": {"symbol": top_asset, "weight": max_weight},
+                "win_ratio": round((wins / len(enriched)) * 100, 1) if enriched else 0.0,
+                "top_asset_concentration": {"symbol": top_asset or "N/A", "weight": max_weight},
                 "risk_profile": risk_metrics
             },
             "sector_distribution": sector_distribution,
             "warnings": warnings,
             "total_history": history_data,
         }
+        return self._sanitize_response(response)
 
     def _calculate_risk_metrics(self, portfolio_history: list[dict]) -> dict:
         if len(portfolio_history) < 5:
@@ -292,19 +334,31 @@ class PortfolioService:
                     else:
                         s_data = data
                     
-                    if s_data.empty: continue
+                    if s_data.empty or 'Close' not in s_data.columns:
+                        continue
                     
-                    current_price = float(s_data['Close'].iloc[-1])
-                    open_price = float(s_data['Open'].iloc[0])
-                    change_pct = ((current_price - open_price) / open_price * 100) if open_price else 0
+                    # Ensure we grab the last non-NaN close price
+                    valid_closes = s_data['Close'].dropna()
+                    if valid_closes.empty:
+                        continue
+                    current_price = float(valid_closes.iloc[-1])
+
+                    valid_opens = s_data['Open'].dropna() if 'Open' in s_data.columns else pd.Series()
+                    open_price = float(valid_opens.iloc[0]) if not valid_opens.empty else current_price
+                    change_pct = ((current_price - open_price) / open_price * 100) if open_price else 0.0
                     
+                    if np.isnan(current_price):
+                        continue
+                    if np.isnan(change_pct):
+                        change_pct = 0.0
+
                     # Store by original symbol and sanitized symbol
                     results[s] = {"price": current_price, "day_change_pct": change_pct}
                     # Also map back to original symbols if they were missing .NS
                     for original in symbols:
                         if self._sanitize_symbol(original) == s:
                             results[original] = results[s]
-                except:
+                except Exception:
                     continue
             return results
         except Exception as e:
@@ -331,3 +385,16 @@ class PortfolioService:
         symbol = str(symbol).strip().upper()
         if "." not in symbol: return f"{symbol}.NS"
         return symbol
+
+    def _sanitize_response(self, data):
+        """Recursively replaces any NaN or Inf float values with 0.0 or safe defaults to ensure JSON compliance."""
+        if isinstance(data, dict):
+            return {k: self._sanitize_response(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._sanitize_response(v) for v in data]
+        elif isinstance(data, float):
+            if np.isnan(data) or np.isinf(data):
+                return 0.0
+            return data
+        return data
+
