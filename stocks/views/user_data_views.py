@@ -3,9 +3,12 @@ from rest_framework.response import Response
 from stocks.models import PortfolioHolding, WatchlistItem
 
 class PortfolioHoldingView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"holdings": []})
+            
         holdings = PortfolioHolding.objects.filter(user=request.user)
         data = [
             {
@@ -20,6 +23,8 @@ class PortfolioHoldingView(views.APIView):
         return Response({"holdings": data})
 
     def post(self, request):
+        if not request.user or not request.user.is_authenticated:
+            return Response({'error': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
         from stocks.utils.validators import validate_symbol, validate_positive_number
         
         symbol_raw = request.data.get('symbol')
@@ -57,6 +62,8 @@ class PortfolioHoldingView(views.APIView):
         return Response({'success': True, 'message': 'Portfolio updated'})
 
     def delete(self, request):
+        if not request.user or not request.user.is_authenticated:
+            return Response({'error': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
         symbol = request.data.get('symbol')
         if not symbol:
              return Response({'error': 'Symbol is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -65,9 +72,12 @@ class PortfolioHoldingView(views.APIView):
 
 
 class WatchlistView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"watchlist": []})
+
         items = WatchlistItem.objects.filter(user=request.user)
         data = [
             {
@@ -78,6 +88,8 @@ class WatchlistView(views.APIView):
         return Response({"watchlist": data})
 
     def post(self, request):
+        if not request.user or not request.user.is_authenticated:
+            return Response({'error': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
         symbol = request.data.get('symbol')
         if not symbol:
             return Response({'error': 'Symbol is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -86,6 +98,8 @@ class WatchlistView(views.APIView):
         return Response({'success': True})
 
     def delete(self, request):
+        if not request.user or not request.user.is_authenticated:
+            return Response({'error': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
         symbol = request.data.get('symbol')
         if not symbol:
             return Response({'error': 'Symbol is required'}, status=status.HTTP_400_BAD_REQUEST)

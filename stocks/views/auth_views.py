@@ -50,22 +50,24 @@ class LoginView(views.APIView):
 
     def post(self, request):
         from django.contrib.auth import authenticate
-        username_or_email = request.data.get('username')
-        password = request.data.get('password')
+        username_or_email = request.data.get('username', '').strip()
+        password = request.data.get('password', '')
         
+        if not username_or_email or not password:
+            return Response({'error': 'Username/email and password required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = None
         # Check if the user is trying to log in with email
         if "@" in username_or_email:
-            users = User.objects.filter(email=username_or_email)
+            users = User.objects.filter(email__iexact=username_or_email)
             if users.exists():
                 for u in users:
                     user = authenticate(username=u.username, password=password)
                     if user:
                         break
             else:
-                # No user with this email, maybe the username itself contains @
                 user = authenticate(username=username_or_email, password=password)
         else:
-            # Regular username login
             user = authenticate(username=username_or_email, password=password)
 
         if not user:
