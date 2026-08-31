@@ -20,9 +20,12 @@ SECRET_KEY = config("SECRET_KEY", default="insecure-default-dev-key")
 DEBUG = config("DEBUG", default=True, cast=bool)
 
 # Host configuration (handles Render hostnames automatically)
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS", 
+    default="localhost,127.0.0.1,finova-backend-cvj3.onrender.com"
+).split(",")
 RENDER_EXTERNAL_HOSTNAME = config("RENDER_EXTERNAL_HOSTNAME", default=None)
-if RENDER_EXTERNAL_HOSTNAME:
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # ------------------------------------------------------------------
