@@ -365,20 +365,188 @@ class PortfolioService:
             logger.error(f"Batch fetch error: {e}")
             return {}
 
+INDIAN_STOCK_SECTORS = {
+    # Energy / Oil & Gas
+    "RELIANCE": "Energy",
+    "ONGC": "Energy",
+    "IOC": "Energy",
+    "BPCL": "Energy",
+    "HPCL": "Energy",
+    "GAIL": "Energy",
+    "OIL": "Energy",
+    "PETRONET": "Energy",
+    "COALINDIA": "Energy",
+
+    # Technology / IT
+    "TCS": "Technology",
+    "INFY": "Technology",
+    "WIPRO": "Technology",
+    "HCLTECH": "Technology",
+    "TECHM": "Technology",
+    "LTIM": "Technology",
+    "PERSISTENT": "Technology",
+    "COFORGE": "Technology",
+    "MPHASIS": "Technology",
+    "KPITTECH": "Technology",
+    "TATAELXSI": "Technology",
+    "LTTS": "Technology",
+    "OFSS": "Technology",
+
+    # Financial Services / Banks / NBFC
+    "HDFCBANK": "Financial Services",
+    "ICICIBANK": "Financial Services",
+    "SBIN": "Financial Services",
+    "KOTAKBANK": "Financial Services",
+    "AXISBANK": "Financial Services",
+    "INDUSINDBK": "Financial Services",
+    "BANKBARODA": "Financial Services",
+    "PNB": "Financial Services",
+    "CANBK": "Financial Services",
+    "IDFCFIRSTB": "Financial Services",
+    "BAJFINANCE": "Financial Services",
+    "BAJAJFINSV": "Financial Services",
+    "CHOLAFIN": "Financial Services",
+    "PAYTM": "Financial Services",
+    "HDFCLIFE": "Financial Services",
+    "SBILIFE": "Financial Services",
+    "ICICIPRULI": "Financial Services",
+    "MUTHOOTFIN": "Financial Services",
+    "SHRIRAMFIN": "Financial Services",
+    "JIOFIN": "Financial Services",
+
+    # Automobiles & Auto Components
+    "TATAMOTORS": "Automobile",
+    "MARUTI": "Automobile",
+    "M&M": "Automobile",
+    "BAJAJ-AUTO": "Automobile",
+    "HEROMOTOCO": "Automobile",
+    "EICHERMOT": "Automobile",
+    "TVSMOTOR": "Automobile",
+    "BHARATFORG": "Automobile",
+    "BOSCHLTD": "Automobile",
+    "MOTHERSON": "Automobile",
+    "MRF": "Automobile",
+    "BALKRISIND": "Automobile",
+
+    # Consumer Defensive / FMCG
+    "ITC": "Consumer Defensive",
+    "HINDUNILVR": "Consumer Defensive",
+    "NESTLEIND": "Consumer Defensive",
+    "BRITANNIA": "Consumer Defensive",
+    "TATACONSUM": "Consumer Defensive",
+    "DABUR": "Consumer Defensive",
+    "MARICO": "Consumer Defensive",
+    "COLPAL": "Consumer Defensive",
+    "GODREJCP": "Consumer Defensive",
+    "VBL": "Consumer Defensive",
+
+    # Consumer Cyclical / Retail / Consumer Durables
+    "TITAN": "Consumer Cyclical",
+    "TRENT": "Consumer Cyclical",
+    "ASIANPAINT": "Consumer Cyclical",
+    "BERGEPAINT": "Consumer Cyclical",
+    "HAVELLS": "Consumer Cyclical",
+    "DIXON": "Consumer Cyclical",
+    "VOLTAS": "Consumer Cyclical",
+    "PAGEIND": "Consumer Cyclical",
+    "BATAINDIA": "Consumer Cyclical",
+    "DMART": "Consumer Cyclical",
+    "NYKAA": "Consumer Cyclical",
+    "ZOMATO": "Consumer Cyclical",
+
+    # Healthcare / Pharma
+    "SUNPHARMA": "Healthcare",
+    "CIPLA": "Healthcare",
+    "DRREDDY": "Healthcare",
+    "DIVISLAB": "Healthcare",
+    "APOLLOHOSP": "Healthcare",
+    "LUPIN": "Healthcare",
+    "ZYDUSLIFE": "Healthcare",
+    "TORNTPHARM": "Healthcare",
+    "AUROPHARMA": "Healthcare",
+    "BIOCON": "Healthcare",
+    "MANKIND": "Healthcare",
+    "MAXHEALTH": "Healthcare",
+
+    # Industrials / Infrastructure / Capital Goods
+    "LT": "Industrials",
+    "SIEMENS": "Industrials",
+    "ABB": "Industrials",
+    "BEL": "Industrials",
+    "HAL": "Industrials",
+    "BHEL": "Industrials",
+    "ADANIENT": "Industrials",
+    "ADANIPORTS": "Industrials",
+    "GMRINFRA": "Industrials",
+    "CUMMINSIND": "Industrials",
+
+    # Utilities / Power / Renewable
+    "NTPC": "Utilities",
+    "POWERGRID": "Utilities",
+    "TATAPOWER": "Utilities",
+    "ADANIGREEN": "Utilities",
+    "ADANIPOWER": "Utilities",
+    "NHPC": "Utilities",
+    "SJVN": "Utilities",
+    "SUZLON": "Utilities",
+    "IREDA": "Utilities",
+
+    # Basic Materials / Metals & Mining / Chemicals
+    "TATASTEEL": "Basic Materials",
+    "JSWSTEEL": "Basic Materials",
+    "HINDALCO": "Basic Materials",
+    "VEDL": "Basic Materials",
+    "JINDALSTEL": "Basic Materials",
+    "NMDC": "Basic Materials",
+    "SAIL": "Basic Materials",
+    "PIDILITIND": "Basic Materials",
+    "SRF": "Basic Materials",
+    "DEEPAKNTR": "Basic Materials",
+    "TATACHEM": "Basic Materials",
+    "ULTRACEMCO": "Basic Materials",
+    "AMBUJACEM": "Basic Materials",
+    "SHREECEM": "Basic Materials",
+    "GRASIM": "Basic Materials",
+
+    # Telecommunication
+    "BHARTIARTL": "Communication Services",
+    "IDEA": "Communication Services",
+    "TATACOMM": "Communication Services",
+
+    # Real Estate
+    "DLF": "Real Estate",
+    "GODREJPROP": "Real Estate",
+    "LODHA": "Real Estate",
+    "OBEROREALTY": "Real Estate",
+    "PHOENIXLTD": "Real Estate",
+}
+
     def _get_sector(self, symbol: str) -> str:
-        """Fetches sector with long-term caching."""
-        cache_key = make_key("stock_sector", symbol)
+        """Fetches sector with fallback dictionary, caching, and yfinance."""
+        if not symbol:
+            return "Diversified"
+            
+        base_sym = str(symbol).strip().upper().split(".")[0]
+        if base_sym in INDIAN_STOCK_SECTORS:
+            return INDIAN_STOCK_SECTORS[base_sym]
+
+        cache_key = make_key("stock_sector", base_sym)
         cached = get_cached(cache_key)
-        if cached: return cached
+        if cached:
+            return cached
 
         try:
             sanitized = self._sanitize_symbol(symbol)
             ticker = yf.Ticker(sanitized)
-            sector = ticker.info.get("sector", "Unknown")
-            set_cached(cache_key, sector, SECTOR_TTL)
-            return sector
-        except:
-            return "Unknown"
+            info = ticker.info or {}
+            sector = info.get("sector") or info.get("industry")
+            if sector and str(sector).strip() and str(sector).lower() != "none":
+                set_cached(cache_key, str(sector).strip(), SECTOR_TTL)
+                return str(sector).strip()
+        except Exception:
+            pass
+
+        return "Diversified"
 
     def _sanitize_symbol(self, symbol: str) -> str:
         if not symbol: return ""
@@ -397,4 +565,5 @@ class PortfolioService:
                 return 0.0
             return data
         return data
+
 
