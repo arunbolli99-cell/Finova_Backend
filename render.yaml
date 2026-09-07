@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: finova-backend
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn finova.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.8
+      - key: USE_SQLITE
+        value: "False"
