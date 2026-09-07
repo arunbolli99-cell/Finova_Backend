@@ -25,8 +25,8 @@ class PortfolioHoldingView(views.APIView):
                 "quantity": float(h.quantity),
                 "avg_buy_price": float(h.avg_buy_price),
                 "sector": sec,
-                "purchase_date": h.purchase_date.isoformat() if h.purchase_date else None,
-                "created_at": h.created_at.isoformat()
+                "purchase_date": h.purchase_date.isoformat() if hasattr(h.purchase_date, 'isoformat') else (str(h.purchase_date) if h.purchase_date else None),
+                "created_at": h.created_at.isoformat() if hasattr(h.created_at, 'isoformat') else str(h.created_at)
             })
         return Response({"holdings": data})
 
@@ -79,7 +79,7 @@ class PortfolioHoldingView(views.APIView):
             'quantity': float(holding.quantity),
             'avg_buy_price': float(holding.avg_buy_price),
             'sector': holding.sector,
-            'purchase_date': holding.purchase_date.isoformat() if holding.purchase_date else None
+            'purchase_date': holding.purchase_date.isoformat() if hasattr(holding.purchase_date, 'isoformat') else (str(holding.purchase_date) if holding.purchase_date else None)
         }})
 
     def delete(self, request):
